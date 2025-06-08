@@ -1,0 +1,13 @@
+{
+  "name": "maa-cli",
+  "type": "module",
+  "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
+    "@tsconfig/node22": "^22.0.2",
+    "@types/node": "^22.15.29",
+    "esbuild": "^0.25.5",
+    "execa": "^9.6.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3"
+  }
+}
