@@ -1,5 +1,6 @@
 import { input, select } from '@inquirer/prompts'
 import { execa } from 'execa'
+import { select as multiselect } from 'inquirer-select-pro'
 import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
@@ -144,11 +145,44 @@ export default async function CreateAction(option: CreateOption) {
             console.error(`unknown choice ${fail} for feature ${feature.name}`)
           }
         }
+        if (needInput) {
+          try {
+            choice = await multiselect({
+              message: `select feature ${feature.name}`,
+              defaultValue: choice,
+              options: feature.choices.map(x => ({
+                value: x.name,
+                name: x.name,
+                description: x.desc
+              }))
+            })
+          } catch {
+            return false
+          }
+        }
+        if (choice.length === 0) {
+          console.log(`nothing for feature ${feature.name}`)
+        } else {
+          console.log(`use ${choice.join(',')} for feature ${feature.name}`)
+        }
+        const choiceInfo = choice.map(c => feature.choices.find(x => x.name === c)).flat()
+        applies.push(
+          ...(choiceInfo
+            ?.map(x => x?.apply)
+            .flat()
+            .filter(x => x) as string[])
+        )
         break
       }
     }
 
     const applied = new Set<string>()
+    const postHooks: {
+      type: 'process'
+      command: string[]
+      cwd?: string
+    }[] = []
+
     for (const apply of applies) {
       if (applied.has(apply)) {
         continue
@@ -162,14 +196,26 @@ export default async function CreateAction(option: CreateOption) {
         const stat = await fs.stat(source)
         if (stat.isFile()) {
           if (entry === '.patch') {
-            const patch = path.join(patchFolder, entry)
-            await execa`git -C ${name} apply ${patch}`
+            await execa`git -C ${name} apply ${source}`
+          } else if (entry === '.post-hook.json') {
+            postHooks.push(...JSON.parse(await fs.readFile(source, 'utf8')))
           } else {
             await fs.copyFile(source, path.resolve(name, entry))
           }
         } else if (stat.isDirectory()) {
           await fs.mkdir(path.resolve(name, entry), { recursive: true })
         }
+      }
+    }
+
+    for (const hook of postHooks) {
+      switch (hook.type) {
+        case 'process':
+          await execa(hook.command[0], hook.command.slice(1), {
+            cwd: hook.cwd,
+            stdio: 'inherit'
+          })
+          break
       }
     }
   }
