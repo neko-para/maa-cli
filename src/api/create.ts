@@ -100,6 +100,7 @@ export default async function CreateAction(option: CreateOption) {
     type: 'process'
     command: string[]
     cwd?: string
+    env?: Record<string, string>
   }[] = []
 
   for (const feature of featureMeta.features) {
@@ -197,7 +198,7 @@ export default async function CreateAction(option: CreateOption) {
       const stat = await fs.stat(source)
       if (stat.isFile()) {
         if (entry === '.patch') {
-          await execa`git -C ${name} apply ${source}`
+          await execa`git -C ${name} apply --reject ${source}`
         } else if (entry === '.post-hook.json') {
           postHooks.push(...JSON.parse(await fs.readFile(source, 'utf8')))
         } else {
@@ -213,7 +214,8 @@ export default async function CreateAction(option: CreateOption) {
     switch (hook.type) {
       case 'process':
         await execa(hook.command[0], hook.command.slice(1), {
-          cwd: hook.cwd,
+          cwd: path.resolve(process.cwd(), name, hook.cwd ?? '.'),
+          env: hook.env,
           stdio: 'inherit'
         })
         break

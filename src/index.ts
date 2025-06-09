@@ -1,8 +1,11 @@
 import { program } from 'commander'
 
 import pkg from '../package.json'
+import AuthAction from './api/auth'
 import CreateAction from './api/create.js'
+import UiFetchAction from './api/ui-fetch'
 import UpdateAction from './api/update.js'
+import { UiTypes, uis } from './utils/ui'
 
 async function main() {
   program.version(pkg.version).description('CLI tool for MaaFramework project')
@@ -10,11 +13,22 @@ async function main() {
   program.option('-s, --silence', 'disable interactive input')
 
   program
+    .command('auth')
+    .description('login into github')
+    .action(async () => {
+      const options = program.opts()
+      await AuthAction({
+        silence: options.silence
+      })
+    })
+
+  program
     .command('update')
     .description('update template')
     .action(async () => {
       await UpdateAction()
     })
+
   program
     .command('create [folder]')
     .description('create project from template')
@@ -44,6 +58,27 @@ async function main() {
         })
       }
     )
+
+  program
+    .command('ui-fetch')
+    .description('fetch ui release info')
+    .option(
+      '-u, --ui <ui>',
+      `target ui to fetch. known values: ${Object.entries(uis)
+        .map(([key, val]) => `${key}(${val.name})`)
+        .join(' ')}`
+    )
+    .action(async (loptions: { ui?: string }) => {
+      const options = program.opts()
+      await UiFetchAction({
+        silence: options.silence,
+
+        ui:
+          loptions.ui && Object.keys(uis).includes(loptions.ui)
+            ? (loptions.ui as UiTypes)
+            : undefined
+      })
+    })
 
   await program.parseAsync()
 
