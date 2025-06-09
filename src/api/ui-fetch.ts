@@ -1,6 +1,10 @@
 import { select } from '@inquirer/prompts'
+import { createWriteStream, existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
+import path from 'node:path'
+import yauzl from 'yauzl'
 
+import { cacheDir } from '../utils/path'
 import { getToken, prepareRepo, repos } from '../utils/repo'
 import { UiTypes, downloadRelease, fetchRelease, uis } from '../utils/ui'
 
@@ -14,6 +18,11 @@ export type UiFetchOption = {
 export default async function UiFetchAction(option: UiFetchOption) {
   if (!(await getToken())) {
     console.error('you must login before fetch')
+    return false
+  }
+
+  if (!existsSync('assets/interface.json')) {
+    console.error('you must run this command at your project root')
     return false
   }
 
@@ -65,11 +74,70 @@ export default async function UiFetchAction(option: UiFetchOption) {
     return false
   }
 
-  console.log('download release started')
-  const data = await downloadRelease(asset.browser_download_url)
-  console.log('download release done')
+  const cachePath = path.resolve(cacheDir, ui)
+  const cacheDataPath = path.resolve(cacheDir, ui, 'data.zip')
+  const cacheVerPath = path.resolve(cacheDir, ui, 'version')
 
-  await fs.writeFile(`${uis[ui].name}-${version}.zip`, Buffer.from(data))
+  await fs.mkdir(cachePath, { recursive: true })
+
+  let zipData: Buffer
+
+  if (
+    existsSync(cacheVerPath) &&
+    existsSync(cacheDataPath) &&
+    (await fs.readFile(cacheVerPath, 'utf8')) === version
+  ) {
+    console.log('use downloaded release')
+    zipData = await fs.readFile(cacheDataPath)
+  } else {
+    console.log('download release started')
+    zipData = Buffer.from(await downloadRelease(asset.browser_download_url))
+    console.log('download release done')
+    await fs.writeFile(cacheDataPath, zipData)
+    await fs.writeFile(cacheVerPath, version, 'utf8')
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    yauzl.fromBuffer(zipData, { lazyEntries: true }, (err, zipfile) => {
+      if (err) throw err
+
+      zipfile.readEntry()
+
+      zipfile.on('entry', async entry => {
+        const filePath = path.join(uis[ui].folder, entry.fileName)
+
+        // 判断是否是目录
+        if (/\/$/.test(entry.fileName)) {
+          await fs.mkdir(filePath, { recursive: true })
+          zipfile.readEntry()
+        } else {
+          await fs.mkdir(path.dirname(filePath), { recursive: true })
+          zipfile.openReadStream(entry, (err, readStream) => {
+            if (err) throw err
+
+            const writeStream = createWriteStream(filePath)
+            readStream.pipe(writeStream)
+
+            writeStream.on('close', () => {
+              zipfile.readEntry()
+            })
+          })
+        }
+      })
+
+      zipfile.on('end', () => {
+        resolve()
+      })
+
+      zipfile.on('error', err => {
+        reject(err)
+      })
+    })
+  })
+
+  for (const link of uis[ui].symlink) {
+    await fs.symlink(link.target, link.link)
+  }
 
   return true
 }

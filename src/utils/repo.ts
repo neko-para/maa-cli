@@ -2,7 +2,9 @@ import { execa } from 'execa'
 import { existsSync, statSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import { fetch } from 'undici'
 
+import { getAgent } from './agent'
 import { cacheDir } from './path'
 
 async function isRepo(dir: string) {
@@ -68,6 +70,7 @@ export async function setToken(token: string) {
 
 export async function fetchWithToken(url: string) {
   return await fetch(url, {
+    dispatcher: getAgent(),
     headers: {
       Authorization: `Bearer ${await getToken()}`
     }

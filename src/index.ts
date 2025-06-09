@@ -5,12 +5,14 @@ import AuthAction from './api/auth'
 import CreateAction from './api/create.js'
 import UiFetchAction from './api/ui-fetch'
 import UpdateAction from './api/update.js'
+import { setProxy } from './utils/agent'
 import { UiTypes, uis } from './utils/ui'
 
 async function main() {
   program.version(pkg.version).description('CLI tool for MaaFramework project')
 
   program.option('-s, --silence', 'disable interactive input')
+  program.option('-p, --proxy <proxy>', 'config proxy')
 
   program
     .command('auth')
@@ -19,6 +21,9 @@ async function main() {
     )
     .action(async () => {
       const options = program.opts()
+      if (options.proxy) {
+        setProxy(options.proxy)
+      }
       await AuthAction({
         silence: options.silence
       })
@@ -73,6 +78,9 @@ async function main() {
     .option('-v, --version <version>', 'version of ui to fetch')
     .action(async (loptions: { ui?: string; version?: string }) => {
       const options = program.opts()
+      if (options.proxy) {
+        setProxy(options.proxy)
+      }
       await UiFetchAction({
         silence: options.silence,
 
