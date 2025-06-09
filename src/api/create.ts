@@ -95,8 +95,14 @@ export default async function CreateAction(option: CreateOption) {
     await fs.readFile(repoDir(repos.template.subp, 'features', 'meta.json'), 'utf8')
   ) as FeatureMeta
 
+  const applies: string[] = []
+  const postHooks: {
+    type: 'process'
+    command: string[]
+    cwd?: string
+  }[] = []
+
   for (const feature of featureMeta.features) {
-    const applies: string[] = []
     switch (feature.type) {
       case 'single': {
         let choice = feature.default
@@ -175,48 +181,42 @@ export default async function CreateAction(option: CreateOption) {
         break
       }
     }
+  }
 
-    const applied = new Set<string>()
-    const postHooks: {
-      type: 'process'
-      command: string[]
-      cwd?: string
-    }[] = []
-
-    for (const apply of applies) {
-      if (applied.has(apply)) {
-        continue
-      }
-      applied.add(apply)
-      const patchFolder = repoDir(repos.template.subp, 'features', apply)
-      for (const entry of await fs.readdir(patchFolder, {
-        recursive: true
-      })) {
-        const source = path.join(patchFolder, entry)
-        const stat = await fs.stat(source)
-        if (stat.isFile()) {
-          if (entry === '.patch') {
-            await execa`git -C ${name} apply ${source}`
-          } else if (entry === '.post-hook.json') {
-            postHooks.push(...JSON.parse(await fs.readFile(source, 'utf8')))
-          } else {
-            await fs.copyFile(source, path.resolve(name, entry))
-          }
-        } else if (stat.isDirectory()) {
-          await fs.mkdir(path.resolve(name, entry), { recursive: true })
+  const applied = new Set<string>()
+  for (const apply of applies) {
+    if (applied.has(apply)) {
+      continue
+    }
+    applied.add(apply)
+    const patchFolder = repoDir(repos.template.subp, 'features', apply)
+    for (const entry of await fs.readdir(patchFolder, {
+      recursive: true
+    })) {
+      const source = path.join(patchFolder, entry)
+      const stat = await fs.stat(source)
+      if (stat.isFile()) {
+        if (entry === '.patch') {
+          await execa`git -C ${name} apply ${source}`
+        } else if (entry === '.post-hook.json') {
+          postHooks.push(...JSON.parse(await fs.readFile(source, 'utf8')))
+        } else {
+          await fs.copyFile(source, path.resolve(name, entry))
         }
+      } else if (stat.isDirectory()) {
+        await fs.mkdir(path.resolve(name, entry), { recursive: true })
       }
     }
+  }
 
-    for (const hook of postHooks) {
-      switch (hook.type) {
-        case 'process':
-          await execa(hook.command[0], hook.command.slice(1), {
-            cwd: hook.cwd,
-            stdio: 'inherit'
-          })
-          break
-      }
+  for (const hook of postHooks) {
+    switch (hook.type) {
+      case 'process':
+        await execa(hook.command[0], hook.command.slice(1), {
+          cwd: hook.cwd,
+          stdio: 'inherit'
+        })
+        break
     }
   }
 
