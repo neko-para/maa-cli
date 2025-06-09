@@ -48,16 +48,23 @@ export const uis = {
 export type UiTypes = keyof typeof uis
 
 export async function fetchRelease(ui: UiTypes) {
-  return (await fetchWithToken(
-    `https://api.github.com/repos/${repos[ui].url.replace('https://github.com/', '')}/releases`
-  )) as {
+  return (await (
+    await fetchWithToken(
+      `https://api.github.com/repos/${repos[ui].url.replace('https://github.com/', '')}/releases`
+    )
+  ).json()) as {
     name: string
     tag_name: string
     draft: boolean
     prerelease: boolean
     assets: {
       name: string
+      content_type: string
       browser_download_url: string
     }[]
   }[]
+}
+
+export async function downloadRelease(url: string) {
+  return await (await fetchWithToken(url)).arrayBuffer()
 }

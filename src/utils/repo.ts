@@ -66,14 +66,12 @@ export async function setToken(token: string) {
   await fs.writeFile(filePath, token)
 }
 
-export async function fetchWithToken(url: string): Promise<unknown> {
-  return await (
-    await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${await getToken()}`
-      }
-    })
-  ).json()
+export async function fetchWithToken(url: string) {
+  return await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${await getToken()}`
+    }
+  })
 }
 
 type RepoInfo = {

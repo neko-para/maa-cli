@@ -14,7 +14,9 @@ async function main() {
 
   program
     .command('auth')
-    .description('login into github')
+    .description(
+      'login into github\ncheck https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens for help'
+    )
     .action(async () => {
       const options = program.opts()
       await AuthAction({
@@ -61,14 +63,15 @@ async function main() {
 
   program
     .command('ui-fetch')
-    .description('fetch ui release info')
+    .description('fetch ui')
     .option(
       '-u, --ui <ui>',
       `target ui to fetch. known values: ${Object.entries(uis)
         .map(([key, val]) => `${key}(${val.name})`)
         .join(' ')}`
     )
-    .action(async (loptions: { ui?: string }) => {
+    .option('-v, --version <version>', 'version of ui to fetch')
+    .action(async (loptions: { ui?: string; version?: string }) => {
       const options = program.opts()
       await UiFetchAction({
         silence: options.silence,
