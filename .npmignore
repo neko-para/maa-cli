@@ -1,0 +1,10 @@
+.github
+node_modules
+scripts
+src
+test
+.gitignore
+.npmignore
+.prettierrc
+pnpm-lock.yaml
+tsconfig.json
