@@ -2,7 +2,9 @@
   "name": "@nekosu/maa-cli",
   "version": "0.0.0-dev",
   "type": "module",
-  "bin": "out/index.js",
+  "bin": {
+    "maa-cli": "out/index.js"
+  },
   "devDependencies": {
     "@inquirer/prompts": "^7.5.3",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
