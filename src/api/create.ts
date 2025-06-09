@@ -158,9 +158,17 @@ export default async function CreateAction(option: CreateOption) {
       for (const entry of await fs.readdir(patchFolder, {
         recursive: true
       })) {
-        if (entry.endsWith('.patch')) {
-          const patch = path.join(patchFolder, entry)
-          await execa`git -C ${name} apply ${patch}`
+        const source = path.join(patchFolder, entry)
+        const stat = await fs.stat(source)
+        if (stat.isFile()) {
+          if (entry === '.patch') {
+            const patch = path.join(patchFolder, entry)
+            await execa`git -C ${name} apply ${patch}`
+          } else {
+            await fs.copyFile(source, path.resolve(name, entry))
+          }
+        } else if (stat.isDirectory()) {
+          await fs.mkdir(path.resolve(name, entry), { recursive: true })
         }
       }
     }
