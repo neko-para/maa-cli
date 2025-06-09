@@ -1,5 +1,6 @@
 {
   "name": "@nekosu/maa-cli",
+  "version": "0.0.0-dev",
   "type": "module",
   "bin": "out/index.js",
   "devDependencies": {

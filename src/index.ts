@@ -1,10 +1,11 @@
 import { program } from 'commander'
 
+import pkg from '../package.json'
 import CreateAction from './api/create.js'
 import UpdateAction from './api/update.js'
 
 async function main() {
-  program.version('1.0.0').description('CLI tool for MaaFramework project')
+  program.version(pkg.version).description('CLI tool for MaaFramework project')
 
   program.option('-s, --silence', 'disable interactive input')
 
