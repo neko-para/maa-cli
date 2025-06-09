@@ -3,6 +3,7 @@ import { context } from 'esbuild'
 const ctx = await context({
   entryPoints: ['src/index.ts'],
   outdir: 'out',
+  sourcemap: true,
   platform: 'node',
   format: 'esm',
   bundle: true,

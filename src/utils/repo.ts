@@ -5,7 +5,7 @@ import path from 'node:path'
 import { cacheDir } from './path'
 
 async function isRepo(dir: string) {
-  return execa`git -C ${dir} status`.then(
+  return await execa`git -C ${dir} status`.then(
     () => true,
     () => false
   )
@@ -28,7 +28,10 @@ export async function prepareRepo(subp: string, url: string, branch: string = 'm
 
 export async function checkRepo(subp: string) {
   const dir = repoDir(subp)
-  return existsSync(dir) && statSync(dir).isDirectory() && (await isRepo(dir))
+  if (!(existsSync(dir) && statSync(dir).isDirectory())) {
+    return false
+  }
+  return await isRepo(dir)
 }
 
 type RepoInfo = {

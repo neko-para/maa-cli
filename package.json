@@ -2,11 +2,14 @@
   "name": "maa-cli",
   "type": "module",
   "devDependencies": {
+    "@inquirer/prompts": "^7.5.3",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@tsconfig/node22": "^22.0.2",
     "@types/node": "^22.15.29",
+    "commander": "^14.0.0",
     "esbuild": "^0.25.5",
     "execa": "^9.6.0",
+    "jsonc-parser": "^3.3.1",
     "prettier": "^3.5.3",
     "typescript": "^5.8.3"
   }
