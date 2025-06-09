@@ -8,6 +8,6 @@ build({
   format: 'esm',
   bundle: true,
   banner: {
-    js: `import { createRequire } from 'module';\nconst require = createRequire(import.meta.url);\n`
+    js: `#!/usr/bin/env node\nimport { createRequire } from 'module';\nconst require = createRequire(import.meta.url);\n`
   }
 })
