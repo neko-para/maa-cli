@@ -138,6 +138,22 @@ export const repos = {
       } as Record<NodeJS.Architecture, string>
       return `${os[process.platform]}-${arch[process.arch]}`
     }
+  },
+  mfw: {
+    subp: 'MFW-PyQt6',
+    url: 'https://github.com/overflow65537/MFW-PyQt6',
+    triplet: () => {
+      const os = {
+        win32: 'win',
+        linux: 'linux',
+        darwin: 'macos'
+      } as Record<NodeJS.Platform, string>
+      const arch = {
+        x64: 'x86_64',
+        arm64: 'aarch64'
+      } as Record<NodeJS.Architecture, string>
+      return `${os[process.platform]}-${arch[process.arch]}`
+    }
   }
 } as const satisfies Record<string, RepoInfo>
 
@@ -169,6 +185,11 @@ export async function prepareRelease(repo: RepoTypes, version?: string, silence:
   const release = await fetchReleaseInfo(repo)
   const triplet = repos[repo].triplet()
 
+  const cachePath = path.resolve(cacheDir, repos[repo].subp + '-release')
+  const cacheDataPath = path.join(cachePath, 'data.zip')
+  const cacheVerPath = path.join(cachePath, 'version')
+  await fs.mkdir(cachePath, { recursive: true })
+
   if (!version) {
     const latest = release.find(x => !x.prerelease && !x.draft)
     if (latest) {
@@ -180,6 +201,7 @@ export async function prepareRelease(repo: RepoTypes, version?: string, silence:
   }
 
   if (!silence) {
+    const localVer = await fs.readFile(cacheVerPath, 'utf8')
     try {
       version = await select({
         message: 'select version',
@@ -187,6 +209,7 @@ export async function prepareRelease(repo: RepoTypes, version?: string, silence:
         choices: release.map(x => {
           const asset = x.assets.find(x => x.name.includes(triplet))
           const attr = [
+            x.tag_name === localVer ? '<downloaded>' : undefined,
             x.draft ? '<draft>' : undefined,
             x.prerelease ? '<prerelease>' : undefined,
             asset ? undefined : '<no-assets>'
@@ -227,12 +250,6 @@ export async function prepareRelease(repo: RepoTypes, version?: string, silence:
     console.error(`unsupport content type ${asset.content_type}`)
     return null
   }
-
-  const cachePath = path.resolve(cacheDir, repos[repo].subp + '-release')
-  const cacheDataPath = path.join(cachePath, 'data.zip')
-  const cacheVerPath = path.join(cachePath, 'version')
-
-  await fs.mkdir(cachePath, { recursive: true })
 
   let zipData: Buffer
 

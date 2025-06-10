@@ -15,7 +15,19 @@ async function main() {
   program.version(pkg.version).description('CLI tool for MaaFramework project')
 
   program.option('-s, --silence', 'disable interactive input')
-  program.option('-p, --proxy <proxy>', 'config proxy')
+  program.option('-p, --proxy <proxy>', 'set proxy for github api')
+  program.option('-C <folder>', 'change to folder before proceed')
+
+  const preloadOption = () => {
+    const options = program.opts()
+    if (options.proxy) {
+      setProxy(options.proxy)
+    }
+    if (options.C) {
+      process.chdir(options.C)
+    }
+    return options
+  }
 
   program
     .command('auth')
@@ -23,10 +35,7 @@ async function main() {
       'login into github\ncheck https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens for help'
     )
     .action(async () => {
-      const options = program.opts()
-      if (options.proxy) {
-        setProxy(options.proxy)
-      }
+      const options = preloadOption()
       resp = await AuthAction({
         silence: options.silence
       })
@@ -36,6 +45,7 @@ async function main() {
     .command('update')
     .description('update template')
     .action(async () => {
+      const options = preloadOption()
       resp = await UpdateAction()
     })
 
@@ -50,6 +60,7 @@ async function main() {
           feature?: string[]
         }
       ) => {
+        const options = preloadOption()
         const features: Record<string, string[]> = {}
         for (const feat of loptions.feature ?? []) {
           const m = /^(.+?)=(.+)$/.exec(feat)
@@ -60,7 +71,6 @@ async function main() {
           }
         }
 
-        const options = program.opts()
         resp = await CreateAction({
           silence: options.silence,
           folder,
@@ -74,10 +84,7 @@ async function main() {
     .description('fetch maa')
     .option('-v, --version <version>', 'version of ui to fetch')
     .action(async (loptions: { version?: string }) => {
-      const options = program.opts()
-      if (options.proxy) {
-        setProxy(options.proxy)
-      }
+      const options = preloadOption()
       await MaaFetchAction({
         silence: options.silence,
 
@@ -94,10 +101,7 @@ async function main() {
     )
     .option('-v, --version <version>', 'version of ui to fetch')
     .action(async (ui: string, loptions: { version?: string }) => {
-      const options = program.opts()
-      if (options.proxy) {
-        setProxy(options.proxy)
-      }
+      const options = preloadOption()
       if (!Object.keys(uis).includes(ui)) {
         console.error(`invalid ui ${ui}`)
         resp = false

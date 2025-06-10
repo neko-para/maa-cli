@@ -16,15 +16,29 @@ export type UiInfo = {
 export const uis = {
   mfaa: {
     name: 'MFAAvalonia',
-    folder: 'MFAAvalonia',
+    folder: 'ui/MFAAvalonia',
     symlink: [
       {
-        link: 'MFAAvalonia/resource',
-        target: '../assets/resource'
+        link: 'ui/MFAAvalonia/resource',
+        target: '../../assets/resource'
       },
       {
-        link: 'MFAAvalonia/interface.json',
-        target: '../assets/interface.json'
+        link: 'ui/MFAAvalonia/interface.json',
+        target: '../../assets/interface.json'
+      }
+    ]
+  },
+  mfw: {
+    name: 'MFW',
+    folder: 'ui/MFW',
+    symlink: [
+      {
+        link: 'ui/MFW/resource',
+        target: '../../assets/resource'
+      },
+      {
+        link: 'ui/MFW/interface.json',
+        target: '../../assets/interface.json'
       }
     ]
   }
