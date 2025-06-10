@@ -16,6 +16,7 @@ type FeatureMetaChoice = {
 
 type FeatureMetaItem = {
   name: string
+  require?: string
 } & (
   | {
       type: 'single'
@@ -30,6 +31,7 @@ type FeatureMetaItem = {
 )
 
 type FeatureMeta = {
+  var: string[]
   features: FeatureMetaItem[]
 }
 
@@ -95,7 +97,21 @@ export default async function CreateAction(option: CreateOption) {
     await fs.readFile(repoDir(repos.template.subp, 'features', 'meta.json'), 'utf8')
   ) as FeatureMeta
 
-  const applies: string[] = []
+  const _features: Record<string, string | string[]> = {}
+  const _variables: Record<string, string> = {}
+
+  const applyVar = (varset: string) => {
+    const m = /^(.+?)=([\s\S]+)$/.exec(varset)
+    if (!m) {
+      console.error(`invalid var ${varset}`)
+    } else {
+      _variables[m[1]] = m[2]
+    }
+  }
+  for (const varset of featureMeta.var) {
+    applyVar(varset)
+  }
+
   const postHooks: {
     type: 'process'
     command: string[]
@@ -104,6 +120,15 @@ export default async function CreateAction(option: CreateOption) {
   }[] = []
 
   for (const feature of featureMeta.features) {
+    if (feature.require) {
+      const func = new Function('features', 'variables', 'return ' + feature.require)
+      if (!func(_features, _variables)) {
+        console.log(`skip feature ${feature.name}`)
+        continue
+      }
+    }
+
+    const applies: string[] = []
     switch (feature.type) {
       case 'single': {
         let choice = feature.default
@@ -134,6 +159,7 @@ export default async function CreateAction(option: CreateOption) {
           }
         }
         console.log(`use ${choice} for feature ${feature.name}`)
+        _features[feature.name] = choice
         const choiceInfo = feature.choices.find(x => x.name === choice)
         applies.push(...(choiceInfo?.apply ?? []))
         break
@@ -172,6 +198,7 @@ export default async function CreateAction(option: CreateOption) {
         } else {
           console.log(`use ${choice.join(',')} for feature ${feature.name}`)
         }
+        _features[feature.name] = choice
         const choiceInfo = choice.map(c => feature.choices.find(x => x.name === c)).flat()
         applies.push(
           ...(choiceInfo
@@ -182,43 +209,51 @@ export default async function CreateAction(option: CreateOption) {
         break
       }
     }
-  }
 
-  const applied = new Set<string>()
-  for (const apply of applies) {
-    if (applied.has(apply)) {
-      continue
-    }
-    applied.add(apply)
-    const patchFolder = repoDir(repos.template.subp, 'features', apply)
-    for (const entry of await fs.readdir(patchFolder, {
-      recursive: true
-    })) {
-      const source = path.join(patchFolder, entry)
-      const stat = await fs.stat(source)
-      if (stat.isFile()) {
-        if (entry === '.patch') {
-          await execa`git -C ${name} apply --reject ${source}`
-        } else if (entry === '.post-hook.json') {
-          postHooks.push(...JSON.parse(await fs.readFile(source, 'utf8')))
-        } else {
-          await fs.copyFile(source, path.resolve(name, entry))
+    for (const applyDecl of applies) {
+      if (applyDecl.startsWith('feat:')) {
+        const apply = applyDecl.replace('feat:', '')
+        const patchFolder = repoDir(repos.template.subp, 'features', apply)
+        for (const entry of await fs.readdir(patchFolder, {
+          recursive: true
+        })) {
+          const source = path.join(patchFolder, entry)
+          const stat = await fs.stat(source)
+          if (stat.isFile()) {
+            if (entry === '.patch') {
+              await execa`git -C ${name} apply --reject ${source}`
+            } else if (entry === '.post-hook.json') {
+              postHooks.push(...JSON.parse(await fs.readFile(source, 'utf8')))
+            } else {
+              await fs.copyFile(source, path.resolve(name, entry))
+            }
+          } else if (stat.isDirectory()) {
+            await fs.mkdir(path.resolve(name, entry), { recursive: true })
+          }
         }
-      } else if (stat.isDirectory()) {
-        await fs.mkdir(path.resolve(name, entry), { recursive: true })
+      } else if (applyDecl.startsWith('var:')) {
+        const varset = applyDecl.replace('var:', '')
+        applyVar(varset)
       }
     }
   }
 
   for (const hook of postHooks) {
     switch (hook.type) {
-      case 'process':
-        await execa(hook.command[0], hook.command.slice(1), {
+      case 'process': {
+        const commands = hook.command.map(str => {
+          for (const [key, val] of Object.entries(_variables)) {
+            str = str.replaceAll(`\$\{${key}\}`, val)
+          }
+          return str
+        })
+        await execa(commands[0], commands.slice(1), {
           cwd: path.resolve(process.cwd(), name, hook.cwd ?? '.'),
           env: hook.env,
           stdio: 'inherit'
         })
         break
+      }
     }
   }
 
