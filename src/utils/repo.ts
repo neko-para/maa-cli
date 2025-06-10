@@ -245,7 +245,12 @@ export async function prepareRelease(repo: RepoTypes, version?: string, silence:
     zipData = await fs.readFile(cacheDataPath)
   } else {
     console.log('download release started')
-    zipData = Buffer.from(await downloadRelease(asset.browser_download_url))
+    const buf = await downloadRelease(asset.browser_download_url)
+    if (!buf) {
+      console.error('download failed')
+      return null
+    }
+    zipData = Buffer.from(buf)
     console.log('download release done')
     await fs.writeFile(cacheDataPath, zipData)
     await fs.writeFile(cacheVerPath, version, 'utf8')
