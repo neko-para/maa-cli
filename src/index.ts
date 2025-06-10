@@ -3,6 +3,7 @@ import { program } from 'commander'
 import pkg from '../package.json'
 import AuthAction from './api/auth'
 import CreateAction from './api/create.js'
+import MaaFetchAction from './api/maa-fetch'
 import UiFetchAction from './api/ui-fetch'
 import UpdateAction from './api/update.js'
 import { setProxy } from './utils/agent'
@@ -67,6 +68,22 @@ async function main() {
     )
 
   program
+    .command('maa-fetch')
+    .description('fetch maa')
+    .option('-v, --version <version>', 'version of ui to fetch')
+    .action(async (loptions: { version?: string }) => {
+      const options = program.opts()
+      if (options.proxy) {
+        setProxy(options.proxy)
+      }
+      await MaaFetchAction({
+        silence: options.silence,
+
+        version: loptions.version
+      })
+    })
+
+  program
     .command('ui-fetch')
     .description('fetch ui')
     .option(
@@ -87,7 +104,8 @@ async function main() {
         ui:
           loptions.ui && Object.keys(uis).includes(loptions.ui)
             ? (loptions.ui as UiTypes)
-            : undefined
+            : undefined,
+        version: loptions.version
       })
     })
 
