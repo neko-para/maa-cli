@@ -10,6 +10,8 @@ import { setProxy } from './utils/agent'
 import { UiTypes, uis } from './utils/ui'
 
 async function main() {
+  let resp = true
+
   program.version(pkg.version).description('CLI tool for MaaFramework project')
 
   program.option('-s, --silence', 'disable interactive input')
@@ -25,7 +27,7 @@ async function main() {
       if (options.proxy) {
         setProxy(options.proxy)
       }
-      await AuthAction({
+      resp = await AuthAction({
         silence: options.silence
       })
     })
@@ -34,7 +36,7 @@ async function main() {
     .command('update')
     .description('update template')
     .action(async () => {
-      await UpdateAction()
+      resp = await UpdateAction()
     })
 
   program
@@ -59,7 +61,7 @@ async function main() {
         }
 
         const options = program.opts()
-        await CreateAction({
+        resp = await CreateAction({
           silence: options.silence,
           folder,
           features
@@ -84,34 +86,34 @@ async function main() {
     })
 
   program
-    .command('ui-fetch')
-    .description('fetch ui')
-    .option(
-      '-u, --ui <ui>',
-      `target ui to fetch. known values: ${Object.entries(uis)
+    .command('ui-fetch <ui>')
+    .description(
+      `fetch ui. known values: ${Object.entries(uis)
         .map(([key, val]) => `${key}(${val.name})`)
         .join(' ')}`
     )
     .option('-v, --version <version>', 'version of ui to fetch')
-    .action(async (loptions: { ui?: string; version?: string }) => {
+    .action(async (ui: string, loptions: { version?: string }) => {
       const options = program.opts()
       if (options.proxy) {
         setProxy(options.proxy)
       }
-      await UiFetchAction({
+      if (!Object.keys(uis).includes(ui)) {
+        console.error(`invalid ui ${ui}`)
+        resp = false
+        return
+      }
+      resp = await UiFetchAction({
         silence: options.silence,
 
-        ui:
-          loptions.ui && Object.keys(uis).includes(loptions.ui)
-            ? (loptions.ui as UiTypes)
-            : undefined,
+        ui: ui as UiTypes,
         version: loptions.version
       })
     })
 
   await program.parseAsync()
 
-  return true
+  return resp
 }
 
 main().then(suc => {

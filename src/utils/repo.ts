@@ -1,3 +1,4 @@
+import { select } from '@inquirer/prompts'
 import { execa } from 'execa'
 import { existsSync, statSync } from 'node:fs'
 import fs from 'node:fs/promises'
@@ -69,12 +70,29 @@ export async function setToken(token: string) {
 }
 
 export async function fetchWithToken(url: string) {
-  return await fetch(url, {
+  const token = await getToken()
+  const resp = await fetch(url, {
     dispatcher: getAgent(),
-    headers: {
-      Authorization: `Bearer ${await getToken()}`
-    }
+    headers: token
+      ? {
+          Authorization: `Bearer ${await getToken()}`
+        }
+      : {}
   })
+  if (resp.status === 403 || resp.status === 429) {
+    const reset = resp.headers.get('x-ratelimit-reset')
+    let resetDate: string = '<unknown>'
+    if (reset) {
+      const date = new Date(parseInt(reset) * 1000)
+      resetDate = date.toString()
+    }
+    console.error(`github api limit exceeeded. reset after ${reset}(${resetDate})`)
+    if (!token) {
+      console.info('consider use `auth` command to login for larger limit')
+    }
+    return null
+  }
+  return resp
 }
 
 type RepoInfo = {
@@ -126,11 +144,11 @@ export const repos = {
 export type RepoTypes = keyof typeof repos
 
 export async function fetchReleaseInfo(repo: RepoTypes) {
-  return (await (
+  return ((await (
     await fetchWithToken(
       `https://api.github.com/repos/${repos[repo].url.replace('https://github.com/', '')}/releases`
     )
-  ).json()) as {
+  )?.json()) ?? []) as {
     name: string
     tag_name: string
     draft: boolean
@@ -144,17 +162,47 @@ export async function fetchReleaseInfo(repo: RepoTypes) {
 }
 
 export async function downloadRelease(url: string) {
-  return await (await fetchWithToken(url)).arrayBuffer()
+  return (await (await fetchWithToken(url))?.arrayBuffer()) ?? null
 }
 
-export async function prepareRelease(repo: RepoTypes, version?: string) {
+export async function prepareRelease(repo: RepoTypes, version?: string, silence: boolean = false) {
   const release = await fetchReleaseInfo(repo)
+  const triplet = repos[repo].triplet()
 
   if (!version) {
     const latest = release.find(x => !x.prerelease && !x.draft)
     if (latest) {
-      console.log(`use latest version ${latest.name}: ${latest.tag_name}`)
+      if (silence) {
+        console.log(`use latest version ${latest.name}: ${latest.tag_name}`)
+      }
       version = latest.tag_name
+    }
+  }
+
+  if (!silence) {
+    try {
+      version = await select({
+        message: 'select version',
+        default: version,
+        choices: release.map(x => {
+          const asset = x.assets.find(x => x.name.includes(triplet))
+          const attr = [
+            x.draft ? '<draft>' : undefined,
+            x.prerelease ? '<prerelease>' : undefined,
+            asset ? undefined : '<no-assets>'
+          ]
+            .filter(x => x)
+            .join(' ')
+          return {
+            value: x.tag_name,
+            name: `${x.name} ${attr}`,
+            disabled: !asset
+          }
+        }),
+        loop: false
+      })
+    } catch {
+      return null
     }
   }
 
@@ -169,7 +217,6 @@ export async function prepareRelease(repo: RepoTypes, version?: string) {
     return null
   }
 
-  const triplet = repos[repo].triplet()
   const asset = meta.assets.find(x => x.name.includes(triplet))
   if (!asset) {
     console.error(`cannot find proper release for triplet ${triplet}`)

@@ -10,11 +10,6 @@ export type MaaFetchOption = {
 }
 
 export default async function MaaFetchAction(option: MaaFetchOption) {
-  if (!(await getToken())) {
-    console.error('you must login before fetch')
-    return false
-  }
-
   if (!existsSync('assets/interface.json')) {
     console.error('you must run this command at your project root')
     return false
